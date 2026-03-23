@@ -28,6 +28,14 @@ const initialFormState: CreateItemForm = {
   lowStockThreshold: "",
 };
 
+function isLowStock(item: PantryItem): boolean {
+  if (item.low_stock_threshold === null) {
+    return false;
+  }
+
+  return item.quantity <= item.low_stock_threshold;
+}
+
 export default function App() {
   const [status, setStatus] = useState("loading...");
   const [items, setItems] = useState<PantryItem[]>([]);
@@ -233,8 +241,30 @@ export default function App() {
       ) : (
         <ul>
           {items.map((item) => (
-            <li key={item.id} style={{ marginBottom: 8 }}>
+            <li
+              key={item.id}
+              style={{
+                marginBottom: 8,
+                padding: 8,
+                borderRadius: 6,
+                backgroundColor: isLowStock(item) ? "#ffe5e5" : "transparent",
+                border: isLowStock(item)
+                  ? "1px solid #ffb3b3"
+                  : "1px solid transparent",
+              }}
+            >
               <strong>{item.name}</strong> — {item.quantity} {item.unit}{" "}
+              {isLowStock(item) && (
+                <span
+                  style={{
+                    color: "#b00020",
+                    fontWeight: "bold",
+                    marginLeft: 8,
+                  }}
+                >
+                  Low stock
+                </span>
+              )}
               <button
                 type="button"
                 onClick={() =>
