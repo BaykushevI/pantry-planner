@@ -80,8 +80,17 @@ export default {
         `
       SELECT *
       FROM pantry_items
-      WHERE low_stock_threshold IS NOT NULL
-        AND quantity <= low_stock_threshold
+      WHERE
+        (
+          low_stock_threshold IS NOT NULL
+          AND quantity <= low_stock_threshold
+        )
+        OR
+        (
+          last_bought_at IS NOT NULL
+          AND refill_frequency_days IS NOT NULL
+          AND CAST(julianday('now') - julianday(last_bought_at) AS INTEGER) >= refill_frequency_days
+        )
       ORDER BY updated_at DESC
       `,
       ).all();

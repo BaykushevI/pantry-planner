@@ -35,3 +35,16 @@ DELETE http://localhost:8787/items/REPLACE_WITH_ID
 
 ### Get suggestions
 GET http://localhost:8787/suggestions
+
+### Create refill-due item
+POST http://localhost:8787/items
+Content-Type: application/json
+
+{
+  "name": "Coffee",
+  "quantity": 3,
+  "unit": "packs",
+  "lastBoughtAt": "2026-03-01T00:00:00.000Z",
+  "refillFrequencyDays": 7,
+  "lowStockThreshold": 1
+}

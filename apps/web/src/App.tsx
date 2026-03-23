@@ -16,6 +16,7 @@ type CreateItemForm = {
   name: string;
   quantity: string;
   unit: string;
+  lastBoughtAt: string;
   refillFrequencyDays: string;
   lowStockThreshold: string;
 };
@@ -24,6 +25,7 @@ const initialFormState: CreateItemForm = {
   name: "",
   quantity: "",
   unit: "",
+  lastBoughtAt: "",
   refillFrequencyDays: "",
   lowStockThreshold: "",
 };
@@ -34,6 +36,38 @@ function isLowStock(item: PantryItem): boolean {
   }
 
   return item.quantity <= item.low_stock_threshold;
+}
+
+function isRefillDue(item: PantryItem): boolean {
+  if (item.last_bought_at === null || item.refill_frequency_days === null) {
+    return false;
+  }
+
+  const lastBought = new Date(item.last_bought_at);
+  const now = new Date();
+  const diffMs = now.getTime() - lastBought.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  return diffDays >= item.refill_frequency_days;
+}
+
+function getSuggestionReason(item: PantryItem): string {
+  const lowStock = isLowStock(item);
+  const refillDue = isRefillDue(item);
+
+  if (lowStock && refillDue) {
+    return "Low stock and refill due";
+  }
+
+  if (lowStock) {
+    return "Low stock";
+  }
+
+  if (refillDue) {
+    return "Refill due";
+  }
+
+  return "Suggested";
 }
 
 export default function App() {
@@ -99,6 +133,9 @@ export default function App() {
           name: form.name,
           quantity: Number(form.quantity),
           unit: form.unit,
+          lastBoughtAt: form.lastBoughtAt
+            ? new Date(form.lastBoughtAt).toISOString()
+            : null,
           refillFrequencyDays: form.refillFrequencyDays
             ? Number(form.refillFrequencyDays)
             : null,
@@ -214,6 +251,23 @@ export default function App() {
 
         <div style={{ marginBottom: 12 }}>
           <label>
+            Last Bought At
+            <br />
+            <input
+              type="date"
+              value={form.lastBoughtAt}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  lastBoughtAt: event.target.value,
+                }))
+              }
+            />
+          </label>
+        </div>
+
+        <div style={{ marginBottom: 12 }}>
+          <label>
             Refill Frequency Days
             <br />
             <input
@@ -261,8 +315,11 @@ export default function App() {
       ) : (
         <ul>
           {suggestedItems.map((item) => (
-            <li key={`suggested-${item.id}`}>
+            <li key={`suggested-${item.id}`} style={{ marginBottom: 8 }}>
               <strong>{item.name}</strong> — {item.quantity} {item.unit}
+              <span style={{ marginLeft: 8, color: "#666" }}>
+                ({getSuggestionReason(item)})
+              </span>
             </li>
           ))}
         </ul>
