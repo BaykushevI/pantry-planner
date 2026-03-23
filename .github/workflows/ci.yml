@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - feat/**
+      - chore/**
+      - docs/**
+      - fix/**
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Validate shared package config
+        run: pnpm --dir packages/shared exec tsc --noEmit
+
+      - name: Validate API worker config
+        run: pnpm --dir apps/api exec tsc --noEmit
+
+      - name: Validate notifications worker config
+        run: pnpm --dir apps/notifications exec tsc --noEmit
+
+      - name: Validate scheduler worker config
+        run: pnpm --dir apps/scheduler exec tsc --noEmit
+
+      - name: Validate web app config
+        run: pnpm --dir apps/web exec tsc --noEmit
