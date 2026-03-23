@@ -48,3 +48,6 @@ Content-Type: application/json
   "refillFrequencyDays": 7,
   "lowStockThreshold": 1
 }
+
+### Get daily summary
+GET http://localhost:8787/summary/daily

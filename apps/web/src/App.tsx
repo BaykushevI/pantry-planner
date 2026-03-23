@@ -12,6 +12,13 @@ type PantryItem = {
   updated_at: string;
 };
 
+type DailySummary = {
+  totalItems: number;
+  lowStockItems: number;
+  refillDueItems: number;
+  suggestedItems: number;
+};
+
 type CreateItemForm = {
   name: string;
   quantity: string;
@@ -78,6 +85,8 @@ export default function App() {
   const [creating, setCreating] = useState(false);
   const [suggestedItems, setSuggestedItems] = useState<PantryItem[]>([]);
   const [suggestionsLoading, setSuggestionsLoading] = useState(true);
+  const [summary, setSummary] = useState<DailySummary | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(true);
 
   async function loadItems() {
     setItemsLoading(true);
@@ -107,6 +116,20 @@ export default function App() {
     }
   }
 
+  async function loadSummary() {
+    setSummaryLoading(true);
+
+    try {
+      const response = await fetch("http://localhost:8787/summary/daily");
+      const data = await response.json();
+      setSummary(data);
+    } catch {
+      setSummary(null);
+    } finally {
+      setSummaryLoading(false);
+    }
+  }
+
   useEffect(() => {
     fetch("http://localhost:8787/health")
       .then((res) => res.json())
@@ -117,6 +140,7 @@ export default function App() {
   useEffect(() => {
     loadItems();
     loadSuggestions();
+    loadSummary();
   }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -148,6 +172,7 @@ export default function App() {
       setForm(initialFormState);
       await loadItems();
       await loadSuggestions();
+      await loadSummary();
     } finally {
       setCreating(false);
     }
@@ -172,6 +197,7 @@ export default function App() {
 
       await loadItems();
       await loadSuggestions();
+      await loadSummary();
     } catch (error) {
       console.error(error);
     }
@@ -189,6 +215,7 @@ export default function App() {
 
       await loadItems();
       await loadSuggestions();
+      await loadSummary();
     } catch (error) {
       console.error(error);
     }
@@ -198,6 +225,21 @@ export default function App() {
     <div style={{ padding: 20, maxWidth: 720 }}>
       <h1>Pantry Planner</h1>
       <p>API status: {status}</p>
+
+      <h2>Daily Summary</h2>
+
+      {summaryLoading ? (
+        <p>Loading summary...</p>
+      ) : summary === null ? (
+        <p>Summary unavailable.</p>
+      ) : (
+        <ul>
+          <li>Total items: {summary.totalItems}</li>
+          <li>Low stock items: {summary.lowStockItems}</li>
+          <li>Refill due items: {summary.refillDueItems}</li>
+          <li>Suggested items: {summary.suggestedItems}</li>
+        </ul>
+      )}
 
       <h2>Add Item</h2>
 
