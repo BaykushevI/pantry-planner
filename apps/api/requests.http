@@ -6,3 +6,18 @@ GET http://localhost:8787/health/db
 
 ### Not found test
 GET http://localhost:8787/unknown
+
+### Get all items
+GET http://localhost:8787/items
+
+### Create item
+POST http://localhost:8787/items
+Content-Type: application/json
+
+{
+  "name": "Milk",
+  "quantity": 1,
+  "unit": "liter",
+  "refillFrequencyDays": 3,
+  "lowStockThreshold": 0.5
+}
