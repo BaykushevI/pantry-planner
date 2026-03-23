@@ -10,7 +10,7 @@ This document describes how to prepare a local development environment for Pantr
 
 You should have the following installed:
 
-- Node.js (LTS)
+- Node.js 22(LTS)
 - pnpm
 - Git
 - Cloudflare Wrangler
@@ -22,9 +22,16 @@ You should have the following installed:
 
 Steps:
 
-1. Clone the repository
-2. Install dependencies (workspace-level)
-3. Verify project structure
+1. Clone the repository:
+   ```
+   git clone <repo-url>
+   cd pantry-planner
+   ```
+2. Install dependencies (workspace-level):
+   ```
+   pnpm install
+   ```
+3. Verify project structure — all apps and packages should resolve with no errors.
 
 ---
 

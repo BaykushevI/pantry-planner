@@ -107,7 +107,7 @@ The current chosen stack is:
 
 This project uses a **monorepo** structure.
 
-Planned top-level structure:
+Repository structure:
 
 ```text
 apps/
@@ -133,7 +133,7 @@ infra/
   workflows/
 ```
 
-Implementation Principles
+## Implementation Principles
 
 The project follows these rules from the start:
 • keep it simple
@@ -147,7 +147,7 @@ The project follows these rules from the start:
 • short-lived branches
 • architecture must remain explainable
 
-What This Project Should Demonstrate
+## What This Project Should Demonstrate
 
 By the end of L2, Pantry Planner should clearly show:
 • why a separate background service exists
@@ -158,7 +158,7 @@ By the end of L2, Pantry Planner should clearly show:
 • how CI/CD supports disciplined delivery
 • how a simple app can still show strong system thinking
 
-Current Phase
+## Current Phase
 
 Phase 1 — Foundation bootstrap
 
@@ -174,7 +174,7 @@ Current focus:
 
 No feature logic is being implemented yet.
 
-Working Discipline
+## Working Discipline
 
 This repo is being built with a delivery mindset:
 • one small reviewable step at a time
@@ -184,16 +184,24 @@ This repo is being built with a delivery mindset:
 • keep the repo stable as often as possible
 • do not mix setup work with feature work
 
-Status
+## Status
 
 Current status:
-• initial repository foundation created
-• directory structure created
-• root README established
+
+- initial repository foundation created
+- root workspace configuration added
+- documentation package added
+- shared package shell created
+- api shell created
+- web shell created
+- notifications shell created
+- scheduler shell created
+- initial CI workflow added and validated
 
 Next step:
-• root workspace setup
 
-Notes
+- begin pantry core foundation
+
+## Notes
 
 This repository is intentionally being built in a way that makes the architecture easy to explain later in portfolio discussions, interviews, and future project evolution work.
