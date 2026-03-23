@@ -1,0 +1,10 @@
+{
+  "name": "pantry-planner",
+  "private": true,
+  "packageManager": "pnpm@10.0.0",
+  "scripts": {
+    "lint": "echo \"lint scripts will be added in later steps\"",
+    "typecheck": "echo \"typecheck scripts will be added in later steps\"",
+    "build": "echo \"build scripts will be added in later steps\""
+  }
+}
