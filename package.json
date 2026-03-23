@@ -6,5 +6,8 @@
     "lint": "echo \"lint scripts will be added in later steps\"",
     "typecheck": "echo \"typecheck scripts will be added in later steps\"",
     "build": "echo \"build scripts will be added in later steps\""
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260317.1"
   }
 }

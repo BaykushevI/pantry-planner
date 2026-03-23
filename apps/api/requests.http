@@ -1,5 +1,8 @@
 ### Health check
 GET http://localhost:8787/health
 
+### Database health check
+GET http://localhost:8787/health/db
+
 ### Not found test
 GET http://localhost:8787/unknown
