@@ -113,6 +113,22 @@ export default function App() {
     }
   }
 
+  async function deleteItem(id: string) {
+    try {
+      const response = await fetch(`http://localhost:8787/items/${id}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to delete item: ${response.status}`);
+      }
+
+      await loadItems();
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
   return (
     <div style={{ padding: 20, maxWidth: 720 }}>
       <h1>Pantry Planner</h1>
@@ -235,6 +251,13 @@ export default function App() {
                 style={{ marginLeft: 4 }}
               >
                 +1
+              </button>
+              <button
+                type="button"
+                onClick={() => deleteItem(item.id)}
+                style={{ marginLeft: 8 }}
+              >
+                Delete
               </button>
             </li>
           ))}

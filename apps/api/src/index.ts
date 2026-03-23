@@ -16,7 +16,7 @@ type UpdateQuantityBody = {
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, PATCH, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
@@ -27,6 +27,11 @@ const jsonHeaders = {
 
 function getItemIdFromPath(pathname: string): string | null {
   const match = pathname.match(/^\/items\/([^/]+)\/quantity$/);
+  return match ? match[1] : null;
+}
+
+function getDeleteItemIdFromPath(pathname: string): string | null {
+  const match = pathname.match(/^\/items\/([^/]+)$/);
   return match ? match[1] : null;
 }
 
@@ -135,6 +140,27 @@ export default {
         JSON.stringify({
           id: quantityItemId,
           message: "quantity updated",
+        }),
+        { headers: jsonHeaders },
+      );
+    }
+
+    const deleteItemId = getDeleteItemIdFromPath(url.pathname);
+
+    if (deleteItemId && request.method === "DELETE") {
+      await env.DB.prepare(
+        `
+      DELETE FROM pantry_items
+      WHERE id = ?
+      `,
+      )
+        .bind(deleteItemId)
+        .run();
+
+      return new Response(
+        JSON.stringify({
+          id: deleteItemId,
+          message: "item deleted",
         }),
         { headers: jsonHeaders },
       );

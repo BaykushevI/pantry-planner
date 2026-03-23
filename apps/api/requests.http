@@ -29,3 +29,6 @@ Content-Type: application/json
 {
   "quantity": 3
 }
+
+### Delete item
+DELETE http://localhost:8787/items/REPLACE_WITH_ID
