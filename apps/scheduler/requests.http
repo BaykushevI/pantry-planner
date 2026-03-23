@@ -1,0 +1,5 @@
+### Scheduler health check
+GET http://localhost:8789/health
+
+### Scheduler not found test
+GET http://localhost:8789/unknown
