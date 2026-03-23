@@ -75,6 +75,22 @@ export default {
       });
     }
 
+    if (url.pathname === "/suggestions" && request.method === "GET") {
+      const result = await env.DB.prepare(
+        `
+      SELECT *
+      FROM pantry_items
+      WHERE low_stock_threshold IS NOT NULL
+        AND quantity <= low_stock_threshold
+      ORDER BY updated_at DESC
+      `,
+      ).all();
+
+      return new Response(JSON.stringify(result.results), {
+        headers: jsonHeaders,
+      });
+    }
+
     if (url.pathname === "/items" && request.method === "POST") {
       const body = (await request.json()) as CreatePantryItemBody;
 

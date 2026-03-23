@@ -36,17 +36,14 @@ function isLowStock(item: PantryItem): boolean {
   return item.quantity <= item.low_stock_threshold;
 }
 
-function getSuggestedItems(items: PantryItem[]): PantryItem[] {
-  return items.filter(isLowStock);
-}
-
 export default function App() {
   const [status, setStatus] = useState("loading...");
   const [items, setItems] = useState<PantryItem[]>([]);
   const [itemsLoading, setItemsLoading] = useState(true);
   const [form, setForm] = useState<CreateItemForm>(initialFormState);
   const [creating, setCreating] = useState(false);
-  const suggestedItems = getSuggestedItems(items);
+  const [suggestedItems, setSuggestedItems] = useState<PantryItem[]>([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(true);
 
   async function loadItems() {
     setItemsLoading(true);
@@ -62,6 +59,20 @@ export default function App() {
     }
   }
 
+  async function loadSuggestions() {
+    setSuggestionsLoading(true);
+
+    try {
+      const response = await fetch("http://localhost:8787/suggestions");
+      const data = await response.json();
+      setSuggestedItems(data);
+    } catch {
+      setSuggestedItems([]);
+    } finally {
+      setSuggestionsLoading(false);
+    }
+  }
+
   useEffect(() => {
     fetch("http://localhost:8787/health")
       .then((res) => res.json())
@@ -71,6 +82,7 @@ export default function App() {
 
   useEffect(() => {
     loadItems();
+    loadSuggestions();
   }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -98,6 +110,7 @@ export default function App() {
 
       setForm(initialFormState);
       await loadItems();
+      await loadSuggestions();
     } finally {
       setCreating(false);
     }
@@ -121,6 +134,7 @@ export default function App() {
       }
 
       await loadItems();
+      await loadSuggestions();
     } catch (error) {
       console.error(error);
     }
@@ -137,6 +151,7 @@ export default function App() {
       }
 
       await loadItems();
+      await loadSuggestions();
     } catch (error) {
       console.error(error);
     }
@@ -239,7 +254,7 @@ export default function App() {
 
       <h2>Suggested Shopping List</h2>
 
-      {itemsLoading ? (
+      {suggestionsLoading ? (
         <p>Loading suggestions...</p>
       ) : suggestedItems.length === 0 ? (
         <p>No suggested items right now.</p>

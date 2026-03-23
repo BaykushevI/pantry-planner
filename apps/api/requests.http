@@ -32,3 +32,6 @@ Content-Type: application/json
 
 ### Delete item
 DELETE http://localhost:8787/items/REPLACE_WITH_ID
+
+### Get suggestions
+GET http://localhost:8787/suggestions
