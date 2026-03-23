@@ -36,12 +36,17 @@ function isLowStock(item: PantryItem): boolean {
   return item.quantity <= item.low_stock_threshold;
 }
 
+function getSuggestedItems(items: PantryItem[]): PantryItem[] {
+  return items.filter(isLowStock);
+}
+
 export default function App() {
   const [status, setStatus] = useState("loading...");
   const [items, setItems] = useState<PantryItem[]>([]);
   const [itemsLoading, setItemsLoading] = useState(true);
   const [form, setForm] = useState<CreateItemForm>(initialFormState);
   const [creating, setCreating] = useState(false);
+  const suggestedItems = getSuggestedItems(items);
 
   async function loadItems() {
     setItemsLoading(true);
@@ -231,6 +236,22 @@ export default function App() {
           {creating ? "Creating..." : "Create item"}
         </button>
       </form>
+
+      <h2>Suggested Shopping List</h2>
+
+      {itemsLoading ? (
+        <p>Loading suggestions...</p>
+      ) : suggestedItems.length === 0 ? (
+        <p>No suggested items right now.</p>
+      ) : (
+        <ul>
+          {suggestedItems.map((item) => (
+            <li key={`suggested-${item.id}`}>
+              <strong>{item.name}</strong> — {item.quantity} {item.unit}
+            </li>
+          ))}
+        </ul>
+      )}
 
       <h2>Pantry Items</h2>
 
