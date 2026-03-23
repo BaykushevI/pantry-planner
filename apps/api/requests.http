@@ -1,0 +1,5 @@
+### Health check
+GET http://localhost:8787/health
+
+### Not found test
+GET http://localhost:8787/unknown

@@ -1,0 +1,5 @@
+{
+  "name": "pantry-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-01-01",
+}
