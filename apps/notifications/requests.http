@@ -1,0 +1,5 @@
+### Notifications health check
+GET http://localhost:8788/health
+
+### Notifications not found test
+GET http://localhost:8788/unknown
