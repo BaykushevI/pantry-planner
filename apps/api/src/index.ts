@@ -10,9 +10,13 @@ type CreatePantryItemBody = {
   lowStockThreshold?: number | null;
 };
 
+type UpdateQuantityBody = {
+  quantity: number;
+};
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, PATCH, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
@@ -20,6 +24,11 @@ const jsonHeaders = {
   "Content-Type": "application/json",
   "Access-Control-Allow-Origin": "*",
 };
+
+function getItemIdFromPath(pathname: string): string | null {
+  const match = pathname.match(/^\/items\/([^/]+)\/quantity$/);
+  return match ? match[1] : null;
+}
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -100,6 +109,32 @@ export default {
         JSON.stringify({
           id,
           message: "item created",
+        }),
+        { headers: jsonHeaders },
+      );
+    }
+
+    const quantityItemId = getItemIdFromPath(url.pathname);
+
+    if (quantityItemId && request.method === "PATCH") {
+      const body = (await request.json()) as UpdateQuantityBody;
+      const now = new Date().toISOString();
+      const safeQuantity = Math.max(0, body.quantity);
+
+      await env.DB.prepare(
+        `
+      UPDATE pantry_items
+      SET quantity = ?, updated_at = ?
+      WHERE id = ?
+      `,
+      )
+        .bind(safeQuantity, now, quantityItemId)
+        .run();
+
+      return new Response(
+        JSON.stringify({
+          id: quantityItemId,
+          message: "quantity updated",
         }),
         { headers: jsonHeaders },
       );

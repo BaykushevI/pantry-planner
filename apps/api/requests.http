@@ -21,3 +21,11 @@ Content-Type: application/json
   "refillFrequencyDays": 3,
   "lowStockThreshold": 0.5
 }
+
+### Update item quantity
+PATCH http://localhost:8787/items/REPLACE_WITH_ID/quantity
+Content-Type: application/json
+
+{
+  "quantity": 3
+}

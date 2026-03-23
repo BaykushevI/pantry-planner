@@ -90,6 +90,29 @@ export default function App() {
     }
   }
 
+  async function updateQuantity(id: string, quantity: number) {
+    try {
+      const response = await fetch(
+        `http://localhost:8787/items/${id}/quantity`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ quantity }),
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to update quantity: ${response.status}`);
+      }
+
+      await loadItems();
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
   return (
     <div style={{ padding: 20, maxWidth: 720 }}>
       <h1>Pantry Planner</h1>
@@ -194,8 +217,25 @@ export default function App() {
       ) : (
         <ul>
           {items.map((item) => (
-            <li key={item.id}>
-              <strong>{item.name}</strong> — {item.quantity} {item.unit}
+            <li key={item.id} style={{ marginBottom: 8 }}>
+              <strong>{item.name}</strong> — {item.quantity} {item.unit}{" "}
+              <button
+                type="button"
+                onClick={() =>
+                  updateQuantity(item.id, Math.max(0, item.quantity - 1))
+                }
+                style={{ marginLeft: 8 }}
+                disabled={item.quantity <= 0}
+              >
+                -1
+              </button>
+              <button
+                type="button"
+                onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                style={{ marginLeft: 4 }}
+              >
+                +1
+              </button>
             </li>
           ))}
         </ul>
