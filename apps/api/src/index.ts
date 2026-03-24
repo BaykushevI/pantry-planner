@@ -41,6 +41,11 @@ function getSnoozeItemIdFromPath(pathname: string): string | null {
   return match ? match[1] : null;
 }
 
+function getBoughtItemIdFromPath(pathname: string): string | null {
+  const match = pathname.match(/^\/items\/([^/]+)\/bought$/);
+  return match ? match[1] : null;
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -282,6 +287,30 @@ export default {
           status: "ok",
           message: "item snoozed",
           snoozedUntil: snoozeUntil.toISOString(),
+        }),
+        { headers: jsonHeaders },
+      );
+    }
+    const boughtItemId = getBoughtItemIdFromPath(url.pathname);
+
+    if (boughtItemId && request.method === "POST") {
+      const now = new Date().toISOString();
+
+      await env.DB.prepare(
+        `
+      UPDATE pantry_items
+      SET last_bought_at = ?, snoozed_until = NULL, updated_at = ?
+      WHERE id = ?
+      `,
+      )
+        .bind(now, now, boughtItemId)
+        .run();
+
+      return new Response(
+        JSON.stringify({
+          status: "ok",
+          message: "item marked as bought",
+          lastBoughtAt: now,
         }),
         { headers: jsonHeaders },
       );

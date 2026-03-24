@@ -239,6 +239,24 @@ export default function App() {
     }
   }
 
+  async function markItemAsBought(id: string) {
+    try {
+      const response = await fetch(`http://localhost:8787/items/${id}/bought`, {
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to mark item as bought: ${response.status}`);
+      }
+
+      await loadItems();
+      await loadSuggestions();
+      await loadSummary();
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
   return (
     <div style={{ padding: 20, maxWidth: 720 }}>
       <h1>Pantry Planner</h1>
@@ -311,10 +329,17 @@ export default function App() {
         <ul>
           {suggestedItems.map((item) => (
             <li key={`suggested-${item.id}`} style={{ marginBottom: 8 }}>
-              <strong>{item.name}</strong> — {item.quantity} {item.unit}
+              <strong>{item.name}</strong> — {item.quantity}
               <span style={{ marginLeft: 8, color: "#666" }}>
                 ({getSuggestionReason(item)})
               </span>
+              <button
+                type="button"
+                onClick={() => markItemAsBought(item.id)}
+                style={{ marginLeft: 8 }}
+              >
+                Bought today
+              </button>
               <button
                 type="button"
                 onClick={() => snoozeItem(item.id)}

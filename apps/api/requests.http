@@ -68,10 +68,11 @@ Content-Type: application/json
 
 {
   "name": "Pepper",
-  "quantity": 1,
-  "unit": "pack",
-  "lowStockThreshold": 2
+  "quantity": 1
 }
 
 ### Snooze item for today
 POST http://localhost:8787/items/REPLACE_WITH_ID/snooze
+
+### Mark item as bought today
+POST http://localhost:8787/items/REPLACE_WITH_ID/bought
