@@ -23,19 +23,11 @@ type DailySummary = {
 type CreateItemForm = {
   name: string;
   quantity: string;
-  unit: string;
-  lastBoughtAt: string;
-  refillFrequencyDays: string;
-  lowStockThreshold: string;
 };
 
 const initialFormState: CreateItemForm = {
   name: "",
   quantity: "",
-  unit: "",
-  lastBoughtAt: "",
-  refillFrequencyDays: "",
-  lowStockThreshold: "",
 };
 
 function isLowStock(item: PantryItem): boolean {
@@ -175,16 +167,6 @@ export default function App() {
         body: JSON.stringify({
           name: form.name,
           quantity: Number(form.quantity),
-          unit: form.unit,
-          lastBoughtAt: form.lastBoughtAt
-            ? new Date(form.lastBoughtAt).toISOString()
-            : null,
-          refillFrequencyDays: form.refillFrequencyDays
-            ? Number(form.refillFrequencyDays)
-            : null,
-          lowStockThreshold: form.lowStockThreshold
-            ? Number(form.lowStockThreshold)
-            : null,
         }),
       });
 
@@ -310,72 +292,6 @@ export default function App() {
                 }))
               }
               required
-            />
-          </label>
-        </div>
-
-        <div style={{ marginBottom: 12 }}>
-          <label>
-            Unit
-            <br />
-            <input
-              value={form.unit}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, unit: event.target.value }))
-              }
-              required
-            />
-          </label>
-        </div>
-
-        <div style={{ marginBottom: 12 }}>
-          <label>
-            Last Bought At
-            <br />
-            <input
-              type="date"
-              value={form.lastBoughtAt}
-              onChange={(event) =>
-                setForm((current) => ({
-                  ...current,
-                  lastBoughtAt: event.target.value,
-                }))
-              }
-            />
-          </label>
-        </div>
-
-        <div style={{ marginBottom: 12 }}>
-          <label>
-            Refill Frequency Days
-            <br />
-            <input
-              type="number"
-              value={form.refillFrequencyDays}
-              onChange={(event) =>
-                setForm((current) => ({
-                  ...current,
-                  refillFrequencyDays: event.target.value,
-                }))
-              }
-            />
-          </label>
-        </div>
-
-        <div style={{ marginBottom: 12 }}>
-          <label>
-            Low Stock Threshold
-            <br />
-            <input
-              type="number"
-              step="0.1"
-              value={form.lowStockThreshold}
-              onChange={(event) =>
-                setForm((current) => ({
-                  ...current,
-                  lowStockThreshold: event.target.value,
-                }))
-              }
             />
           </label>
         </div>

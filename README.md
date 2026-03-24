@@ -198,6 +198,10 @@ Current status:
 - scheduler shell created
 - initial CI workflow added and validated
 - first queue-based notification flow implemented and validated locally
+- queue-based notification flow implemented
+- retry and failure handling added
+- scheduler with cron trigger implemented
+- daily digest payload generated from D1
 
 Next step:
 

@@ -62,3 +62,12 @@ To test the API producer and notifications consumer together in local developmen
 `npx wrangler dev -c wrangler.jsonc -c ../notifications/wrangler.jsonc --persist-to .wrangler/state --port 8787`
 
 This is the preferred way to validate the first queue-based flow locally.
+
+### Shared local state
+
+All workers must use the same `--persist-to` path when using D1 and Queues locally.
+
+Example:
+--persist-to ../../.wrangler/state
+
+Otherwise, each worker will operate on a different local database.

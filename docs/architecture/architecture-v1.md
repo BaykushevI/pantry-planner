@@ -165,3 +165,11 @@ This project intentionally avoids:
 - better observability
 - multiple notification channels
 - improved suggestion engine
+
+### Async Flows
+
+1. Event-driven flow (low stock)
+   API → Queue → Notifications Worker
+
+2. Scheduled flow (daily digest)
+   Scheduler → Queue → Notifications Worker

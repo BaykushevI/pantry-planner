@@ -8,10 +8,7 @@ type Env = {
 type CreatePantryItemBody = {
   name: string;
   quantity: number;
-  unit: string;
   lastBoughtAt?: string | null;
-  refillFrequencyDays?: number | null;
-  lowStockThreshold?: number | null;
 };
 
 type UpdateQuantityBody = {
@@ -194,54 +191,19 @@ export default {
 
       await env.DB.prepare(
         `
-    INSERT INTO pantry_items (
-      id,
-      name,
-      quantity,
-      unit,
-      last_bought_at,
-      refill_frequency_days,
-      low_stock_threshold,
-      created_at,
-      updated_at
-    )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `,
+      INSERT INTO pantry_items (
+        id,
+        name,
+        quantity,
+        last_bought_at,
+        created_at,
+        updated_at
       )
-        .bind(
-          id,
-          body.name,
-          body.quantity,
-          body.unit,
-          body.lastBoughtAt ?? null,
-          body.refillFrequencyDays ?? null,
-          body.lowStockThreshold ?? null,
-          now,
-          now,
-        )
+      VALUES (?, ?, ?, ?, ?, ?)
+      `,
+      )
+        .bind(crypto.randomUUID(), body.name, body.quantity, now, now, now)
         .run();
-
-      const isLowStockItem =
-        body.lowStockThreshold !== null &&
-        body.lowStockThreshold !== undefined &&
-        Number(body.quantity) <= body.lowStockThreshold;
-
-      if (isLowStockItem) {
-        const job: NotificationJob = {
-          type: "LOW_STOCK",
-          userId: "demo-user",
-          itemId: id,
-          payload: {
-            name: body.name,
-            quantity: body.quantity,
-            unit: body.unit,
-            lowStockThreshold: body.lowStockThreshold,
-          },
-          createdAt: now,
-        };
-
-        await env.NOTIFICATION_QUEUE.send(job);
-      }
 
       return new Response(
         JSON.stringify({
