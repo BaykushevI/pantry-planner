@@ -16,6 +16,7 @@ type DailySummary = {
   totalItems: number;
   lowStockItems: number;
   refillDueItems: number;
+  dueSoonItems: number;
   suggestedItems: number;
 };
 
@@ -58,9 +59,23 @@ function isRefillDue(item: PantryItem): boolean {
   return diffDays >= item.refill_frequency_days;
 }
 
+function isRefillDueSoon(item: PantryItem): boolean {
+  if (item.last_bought_at === null || item.refill_frequency_days === null) {
+    return false;
+  }
+
+  const lastBought = new Date(item.last_bought_at);
+  const now = new Date();
+  const diffMs = now.getTime() - lastBought.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  return diffDays === item.refill_frequency_days - 1;
+}
+
 function getSuggestionReason(item: PantryItem): string {
   const lowStock = isLowStock(item);
   const refillDue = isRefillDue(item);
+  const refillDueSoon = isRefillDueSoon(item);
 
   if (lowStock && refillDue) {
     return "Low stock and refill due";
@@ -72,6 +87,10 @@ function getSuggestionReason(item: PantryItem): string {
 
   if (refillDue) {
     return "Refill due";
+  }
+
+  if (refillDueSoon) {
+    return "Refill due soon";
   }
 
   return "Suggested";
@@ -237,6 +256,7 @@ export default function App() {
           <li>Total items: {summary.totalItems}</li>
           <li>Low stock items: {summary.lowStockItems}</li>
           <li>Refill due items: {summary.refillDueItems}</li>
+          <li>Due soon items: {summary.dueSoonItems}</li>
           <li>Suggested items: {summary.suggestedItems}</li>
         </ul>
       )}

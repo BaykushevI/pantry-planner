@@ -95,6 +95,12 @@ export default {
           AND refill_frequency_days IS NOT NULL
           AND CAST(julianday('now') - julianday(last_bought_at) AS INTEGER) >= refill_frequency_days
         )
+        OR
+        (
+          last_bought_at IS NOT NULL
+          AND refill_frequency_days IS NOT NULL
+          AND CAST(julianday('now') - julianday(last_bought_at) AS INTEGER) = refill_frequency_days - 1
+        )
       ORDER BY updated_at DESC
       `,
       ).all();
@@ -149,12 +155,23 @@ export default {
       `,
       ).first<{ count: number }>();
 
+      const dueSoonItemsResult = await env.DB.prepare(
+        `
+      SELECT COUNT(*) as count
+      FROM pantry_items
+      WHERE last_bought_at IS NOT NULL
+        AND refill_frequency_days IS NOT NULL
+        AND CAST(julianday('now') - julianday(last_bought_at) AS INTEGER) = refill_frequency_days - 1
+      `,
+      ).first<{ count: number }>();
+
       return new Response(
         JSON.stringify({
           totalItems: totalItemsResult?.count ?? 0,
           lowStockItems: lowStockItemsResult?.count ?? 0,
           refillDueItems: refillDueItemsResult?.count ?? 0,
           suggestedItems: suggestedItemsResult?.count ?? 0,
+          dueSoonItems: dueSoonItemsResult?.count ?? 0,
         }),
         { headers: jsonHeaders },
       );
