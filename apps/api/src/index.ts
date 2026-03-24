@@ -46,6 +46,50 @@ function getBoughtItemIdFromPath(pathname: string): string | null {
   return match ? match[1] : null;
 }
 
+async function getDerivedCadenceDays(
+  env: Env,
+  itemId: string,
+): Promise<number | null> {
+  const result = await env.DB.prepare(
+    `
+      SELECT purchased_at
+      FROM purchase_events
+      WHERE item_id = ?
+      ORDER BY purchased_at ASC
+      `,
+  )
+    .bind(itemId)
+    .all<{ purchased_at: string }>();
+
+  const events = result.results ?? [];
+
+  if (events.length < 2) {
+    return null;
+  }
+
+  const intervals: number[] = [];
+
+  for (let i = 1; i < events.length; i++) {
+    const previous = new Date(events[i - 1].purchased_at);
+    const current = new Date(events[i].purchased_at);
+    const diffMs = current.getTime() - previous.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffDays > 0) {
+      intervals.push(diffDays);
+    }
+  }
+
+  if (intervals.length === 0) {
+    return null;
+  }
+
+  const average =
+    intervals.reduce((sum, value) => sum + value, 0) / intervals.length;
+
+  return Math.round(average);
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -306,6 +350,20 @@ export default {
         .bind(now, now, boughtItemId)
         .run();
 
+      await env.DB.prepare(
+        `
+      INSERT INTO purchase_events (
+        id,
+        item_id,
+        purchased_at,
+        created_at
+      )
+      VALUES (?, ?, ?, ?)
+      `,
+      )
+        .bind(crypto.randomUUID(), boughtItemId, now, now)
+        .run();
+
       return new Response(
         JSON.stringify({
           status: "ok",
@@ -315,6 +373,24 @@ export default {
         { headers: jsonHeaders },
       );
     }
+
+    const cadenceItemIdMatch = url.pathname.match(
+      /^\/items\/([^/]+)\/cadence$/,
+    );
+
+    if (cadenceItemIdMatch && request.method === "GET") {
+      const itemId = cadenceItemIdMatch[1];
+      const cadenceDays = await getDerivedCadenceDays(env, itemId);
+
+      return new Response(
+        JSON.stringify({
+          itemId,
+          cadenceDays,
+        }),
+        { headers: jsonHeaders },
+      );
+    }
+
     return new Response("Not Found", {
       status: 404,
       headers: {

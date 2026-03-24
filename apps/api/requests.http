@@ -76,3 +76,6 @@ POST http://localhost:8787/items/REPLACE_WITH_ID/snooze
 
 ### Mark item as bought today
 POST http://localhost:8787/items/REPLACE_WITH_ID/bought
+
+### Get derived cadence for item
+GET http://localhost:8787/items/REPLACE_WITH_ID/cadence
