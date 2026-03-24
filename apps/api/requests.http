@@ -72,3 +72,6 @@ Content-Type: application/json
   "unit": "pack",
   "lowStockThreshold": 2
 }
+
+### Snooze item for today
+POST http://localhost:8787/items/REPLACE_WITH_ID/snooze

@@ -240,6 +240,23 @@ export default function App() {
     }
   }
 
+  async function snoozeItem(id: string) {
+    try {
+      const response = await fetch(`http://localhost:8787/items/${id}/snooze`, {
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to snooze item: ${response.status}`);
+      }
+
+      await loadSuggestions();
+      await loadSummary();
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
   return (
     <div style={{ padding: 20, maxWidth: 720 }}>
       <h1>Pantry Planner</h1>
@@ -382,6 +399,13 @@ export default function App() {
               <span style={{ marginLeft: 8, color: "#666" }}>
                 ({getSuggestionReason(item)})
               </span>
+              <button
+                type="button"
+                onClick={() => snoozeItem(item.id)}
+                style={{ marginLeft: 8 }}
+              >
+                Dismiss today
+              </button>
             </li>
           ))}
         </ul>

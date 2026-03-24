@@ -39,6 +39,11 @@ function getDeleteItemIdFromPath(pathname: string): string | null {
   return match ? match[1] : null;
 }
 
+function getSnoozeItemIdFromPath(pathname: string): string | null {
+  const match = pathname.match(/^\/items\/([^/]+)\/snooze$/);
+  return match ? match[1] : null;
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -85,21 +90,25 @@ export default {
       SELECT *
       FROM pantry_items
       WHERE
+        (snoozed_until IS NULL OR datetime(snoozed_until) <= datetime('now'))
+        AND
         (
-          low_stock_threshold IS NOT NULL
-          AND quantity <= low_stock_threshold
-        )
-        OR
-        (
-          last_bought_at IS NOT NULL
-          AND refill_frequency_days IS NOT NULL
-          AND CAST(julianday('now') - julianday(last_bought_at) AS INTEGER) >= refill_frequency_days
-        )
-        OR
-        (
-          last_bought_at IS NOT NULL
-          AND refill_frequency_days IS NOT NULL
-          AND CAST(julianday('now') - julianday(last_bought_at) AS INTEGER) = refill_frequency_days - 1
+          (
+            low_stock_threshold IS NOT NULL
+            AND quantity <= low_stock_threshold
+          )
+          OR
+          (
+            last_bought_at IS NOT NULL
+            AND refill_frequency_days IS NOT NULL
+            AND CAST(julianday('now') - julianday(last_bought_at) AS INTEGER) >= refill_frequency_days
+          )
+          OR
+          (
+            last_bought_at IS NOT NULL
+            AND refill_frequency_days IS NOT NULL
+            AND CAST(julianday('now') - julianday(last_bought_at) AS INTEGER) = refill_frequency_days - 1
+          )
         )
       ORDER BY updated_at DESC
       `,
@@ -290,6 +299,31 @@ export default {
       );
     }
 
+    const snoozeItemId = getSnoozeItemIdFromPath(url.pathname);
+
+    if (snoozeItemId && request.method === "POST") {
+      const snoozeUntil = new Date();
+      snoozeUntil.setDate(snoozeUntil.getDate() + 1);
+
+      await env.DB.prepare(
+        `
+      UPDATE pantry_items
+      SET snoozed_until = ?, updated_at = ?
+      WHERE id = ?
+      `,
+      )
+        .bind(snoozeUntil.toISOString(), new Date().toISOString(), snoozeItemId)
+        .run();
+
+      return new Response(
+        JSON.stringify({
+          status: "ok",
+          message: "item snoozed",
+          snoozedUntil: snoozeUntil.toISOString(),
+        }),
+        { headers: jsonHeaders },
+      );
+    }
     return new Response("Not Found", {
       status: 404,
       headers: {
