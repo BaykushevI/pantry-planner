@@ -33,6 +33,7 @@ export default {
             "Daily digest job received for user:",
             message.body.userId,
           );
+          console.log("Daily digest payload:", message.body.payload);
         }
         if (Math.random() < 0.3) {
           throw new Error("Simulated random failure");

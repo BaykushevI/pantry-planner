@@ -6,3 +6,6 @@ GET http://localhost:8790/run-daily-digest
 
 ### Scheduler not found test
 GET http://localhost:8790/unknown
+
+### Test scheduled handler
+GET http://localhost:8787/__scheduled?cron=0+8+*+*+*

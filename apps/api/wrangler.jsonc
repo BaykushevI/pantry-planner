@@ -6,7 +6,7 @@
     {
       "binding": "DB",
       "database_name": "pantry-planner-db",
-      "database_id": "REPLACE_WITH_REAL_DATABASE_ID",
+      "database_id": "local-db",
     },
   ],
   "queues": {

@@ -2,6 +2,13 @@
   "name": "pantry-scheduler",
   "main": "src/index.ts",
   "compatibility_date": "2026-01-01",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "pantry-planner-db",
+      "database_id": "local-db",
+    },
+  ],
   "queues": {
     "producers": [
       {
