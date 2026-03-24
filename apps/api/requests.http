@@ -51,3 +51,14 @@ Content-Type: application/json
 
 ### Get daily summary
 GET http://localhost:8787/summary/daily
+
+### Create low stock item
+POST http://localhost:8787/items
+Content-Type: application/json
+
+{
+  "name": "Sugar",
+  "quantity": 1,
+  "unit": "kg",
+  "lowStockThreshold": 2
+}

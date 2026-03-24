@@ -12,9 +12,17 @@ importers:
         specifier: ^4.20260317.1
         version: 4.20260317.1
 
-  apps/api: {}
+  apps/api:
+    dependencies:
+      '@pantry/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
 
-  apps/notifications: {}
+  apps/notifications:
+    dependencies:
+      '@pantry/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
 
   apps/scheduler: {}
 
