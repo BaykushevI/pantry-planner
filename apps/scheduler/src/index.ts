@@ -5,14 +5,15 @@ type Env = {
   NOTIFICATION_QUEUE: Queue;
 };
 
-const jsonHeaders = {
-  "Content-Type": "application/json",
-};
 type DailySummaryPayload = {
   totalItems: number;
   lowStockItems: number;
   refillDueItems: number;
   suggestedItems: number;
+};
+
+const jsonHeaders = {
+  "Content-Type": "application/json",
 };
 
 async function buildDailySummary(env: Env): Promise<DailySummaryPayload> {
@@ -116,7 +117,6 @@ export default {
     ctx: ExecutionContext,
   ): Promise<void> {
     console.log("Cron triggered:", controller.cron);
-
     ctx.waitUntil(enqueueDailyDigest(env, "cron"));
   },
 };

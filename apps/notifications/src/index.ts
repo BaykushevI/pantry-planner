@@ -28,6 +28,7 @@ export default {
           message.ack();
           continue;
         }
+
         if (message.body.type === "DAILY_DIGEST") {
           console.log(
             "Daily digest job received for user:",
@@ -35,12 +36,12 @@ export default {
           );
           console.log("Daily digest payload:", message.body.payload);
         }
+
         if (Math.random() < 0.3) {
           throw new Error("Simulated random failure");
         }
 
         console.log("Processed:", message.body.type);
-
         message.ack();
       } catch (error) {
         console.error("Processing failed:", error);
