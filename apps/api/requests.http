@@ -62,3 +62,13 @@ Content-Type: application/json
   "unit": "kg",
   "lowStockThreshold": 2
 }
+###
+POST http://localhost:8787/items
+Content-Type: application/json
+
+{
+  "name": "Pepper",
+  "quantity": 1,
+  "unit": "pack",
+  "lowStockThreshold": 2
+}

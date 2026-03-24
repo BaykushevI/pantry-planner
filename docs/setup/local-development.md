@@ -54,3 +54,11 @@ Before committing:
 - project builds (if applicable)
 - no broken structure
 - changes are minimal and clear
+
+## Multi-worker queue testing
+
+To test the API producer and notifications consumer together in local development, run a single Wrangler session from `apps/api` with both config files:
+
+`npx wrangler dev -c wrangler.jsonc -c ../notifications/wrangler.jsonc --persist-to .wrangler/state --port 8787`
+
+This is the preferred way to validate the first queue-based flow locally.

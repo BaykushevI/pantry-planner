@@ -197,6 +197,7 @@ Current status:
 - notifications shell created
 - scheduler shell created
 - initial CI workflow added and validated
+- first queue-based notification flow implemented and validated locally
 
 Next step:
 

@@ -8,6 +8,19 @@ const jsonHeaders = {
   "Content-Type": "application/json",
 };
 
+async function enqueueDailyDigest(env: Env, source: "manual" | "cron") {
+  const job: NotificationJob = {
+    type: "DAILY_DIGEST",
+    userId: "demo-user",
+    createdAt: new Date().toISOString(),
+    payload: {
+      source,
+    },
+  };
+
+  await env.NOTIFICATION_QUEUE.send(job);
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -20,16 +33,7 @@ export default {
     }
 
     if (url.pathname === "/run-daily-digest") {
-      const job: NotificationJob = {
-        type: "DAILY_DIGEST",
-        userId: "demo-user",
-        createdAt: new Date().toISOString(),
-        payload: {
-          source: "scheduler",
-        },
-      };
-
-      await env.NOTIFICATION_QUEUE.send(job);
+      await enqueueDailyDigest(env, "manual");
 
       return new Response(
         JSON.stringify({
@@ -41,5 +45,15 @@ export default {
     }
 
     return new Response("Not Found", { status: 404 });
+  },
+
+  async scheduled(
+    controller: ScheduledController,
+    env: Env,
+    ctx: ExecutionContext,
+  ): Promise<void> {
+    console.log("Cron triggered:", controller.cron);
+
+    ctx.waitUntil(enqueueDailyDigest(env, "cron"));
   },
 };
