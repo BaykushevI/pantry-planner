@@ -4,17 +4,16 @@ type PantryItem = {
   id: string;
   name: string;
   quantity: number;
-  unit: string;
   last_bought_at: string | null;
-  refill_frequency_days: number | null;
-  low_stock_threshold: number | null;
+  snoozed_until?: string | null;
   created_at: string;
   updated_at: string;
+  suggestion_reason?: string;
+  derived_cadence_days?: number;
 };
 
 type DailySummary = {
   totalItems: number;
-  lowStockItems: number;
   refillDueItems: number;
   dueSoonItems: number;
   suggestedItems: number;
@@ -30,58 +29,12 @@ const initialFormState: CreateItemForm = {
   quantity: "",
 };
 
-function isLowStock(item: PantryItem): boolean {
-  if (item.low_stock_threshold === null) {
-    return false;
-  }
-
-  return item.quantity <= item.low_stock_threshold;
-}
-
-function isRefillDue(item: PantryItem): boolean {
-  if (item.last_bought_at === null || item.refill_frequency_days === null) {
-    return false;
-  }
-
-  const lastBought = new Date(item.last_bought_at);
-  const now = new Date();
-  const diffMs = now.getTime() - lastBought.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-  return diffDays >= item.refill_frequency_days;
-}
-
-function isRefillDueSoon(item: PantryItem): boolean {
-  if (item.last_bought_at === null || item.refill_frequency_days === null) {
-    return false;
-  }
-
-  const lastBought = new Date(item.last_bought_at);
-  const now = new Date();
-  const diffMs = now.getTime() - lastBought.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-  return diffDays === item.refill_frequency_days - 1;
-}
-
 function getSuggestionReason(item: PantryItem): string {
-  const lowStock = isLowStock(item);
-  const refillDue = isRefillDue(item);
-  const refillDueSoon = isRefillDueSoon(item);
-
-  if (lowStock && refillDue) {
-    return "Low stock and refill due";
-  }
-
-  if (lowStock) {
-    return "Low stock";
-  }
-
-  if (refillDue) {
+  if (item.suggestion_reason === "REFILL_DUE") {
     return "Refill due";
   }
 
-  if (refillDueSoon) {
+  if (item.suggestion_reason === "REFILL_DUE_SOON") {
     return "Refill due soon";
   }
 
@@ -271,7 +224,6 @@ export default function App() {
       ) : (
         <ul>
           <li>Total items: {summary.totalItems}</li>
-          <li>Low stock items: {summary.lowStockItems}</li>
           <li>Refill due items: {summary.refillDueItems}</li>
           <li>Due soon items: {summary.dueSoonItems}</li>
           <li>Suggested items: {summary.suggestedItems}</li>
@@ -367,24 +319,9 @@ export default function App() {
                 marginBottom: 8,
                 padding: 8,
                 borderRadius: 6,
-                backgroundColor: isLowStock(item) ? "#ffe5e5" : "transparent",
-                border: isLowStock(item)
-                  ? "1px solid #ffb3b3"
-                  : "1px solid transparent",
               }}
             >
-              <strong>{item.name}</strong> — {item.quantity} {item.unit}{" "}
-              {isLowStock(item) && (
-                <span
-                  style={{
-                    color: "#b00020",
-                    fontWeight: "bold",
-                    marginLeft: 8,
-                  }}
-                >
-                  Low stock
-                </span>
-              )}
+              <strong>{item.name}</strong> — {item.quantity}
               <button
                 type="button"
                 onClick={() =>

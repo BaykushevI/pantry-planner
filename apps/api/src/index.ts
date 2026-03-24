@@ -90,6 +90,63 @@ async function getDerivedCadenceDays(
   return Math.round(average);
 }
 
+function getDaysSince(dateString: string): number {
+  const target = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - target.getTime();
+
+  return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+}
+
+async function getSuggestedItemsWithDerivedCadence(env: Env) {
+  const result = await env.DB.prepare(
+    `
+      SELECT *
+      FROM pantry_items
+      WHERE snoozed_until IS NULL OR datetime(snoozed_until) <= datetime('now')
+      ORDER BY updated_at DESC
+      `,
+  ).all<{
+    id: string;
+    name: string;
+    quantity: number;
+    last_bought_at: string | null;
+    snoozed_until: string | null;
+    created_at: string;
+    updated_at: string;
+  }>();
+
+  const items = result.results ?? [];
+  const suggestedItems: Array<Record<string, unknown>> = [];
+
+  for (const item of items) {
+    if (!item.last_bought_at) {
+      continue;
+    }
+
+    const cadenceDays = await getDerivedCadenceDays(env, item.id);
+
+    if (cadenceDays === null) {
+      continue;
+    }
+
+    const daysSinceLastBought = getDaysSince(item.last_bought_at);
+
+    const isDue = daysSinceLastBought >= cadenceDays;
+    const isDueSoon = daysSinceLastBought === cadenceDays - 1;
+
+    if (isDue || isDueSoon) {
+      suggestedItems.push({
+        ...item,
+        derived_cadence_days: cadenceDays,
+        suggestion_reason: isDue ? "REFILL_DUE" : "REFILL_DUE_SOON",
+      });
+    }
+  }
+
+  return suggestedItems;
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -135,32 +192,48 @@ export default {
         `
       SELECT *
       FROM pantry_items
-      WHERE
-        (snoozed_until IS NULL OR datetime(snoozed_until) <= datetime('now'))
-        AND
-        (
-          (
-            low_stock_threshold IS NOT NULL
-            AND quantity <= low_stock_threshold
-          )
-          OR
-          (
-            last_bought_at IS NOT NULL
-            AND refill_frequency_days IS NOT NULL
-            AND CAST(julianday('now') - julianday(last_bought_at) AS INTEGER) >= refill_frequency_days
-          )
-          OR
-          (
-            last_bought_at IS NOT NULL
-            AND refill_frequency_days IS NOT NULL
-            AND CAST(julianday('now') - julianday(last_bought_at) AS INTEGER) = refill_frequency_days - 1
-          )
-        )
+      WHERE snoozed_until IS NULL OR datetime(snoozed_until) <= datetime('now')
       ORDER BY updated_at DESC
       `,
-      ).all();
+      ).all<{
+        id: string;
+        name: string;
+        quantity: number;
+        last_bought_at: string | null;
+        snoozed_until: string | null;
+        created_at: string;
+        updated_at: string;
+      }>();
 
-      return new Response(JSON.stringify(result.results), {
+      const items = result.results ?? [];
+      const suggestedItems: Array<Record<string, unknown>> = [];
+
+      for (const item of items) {
+        if (!item.last_bought_at) {
+          continue;
+        }
+
+        const cadenceDays = await getDerivedCadenceDays(env, item.id);
+
+        if (cadenceDays === null) {
+          continue;
+        }
+
+        const daysSinceLastBought = getDaysSince(item.last_bought_at);
+
+        const isDue = daysSinceLastBought >= cadenceDays;
+        const isDueSoon = daysSinceLastBought === cadenceDays - 1;
+
+        if (isDue || isDueSoon) {
+          suggestedItems.push({
+            ...item,
+            derived_cadence_days: cadenceDays,
+            suggestion_reason: isDue ? "REFILL_DUE" : "REFILL_DUE_SOON",
+          });
+        }
+      }
+
+      return new Response(JSON.stringify(suggestedItems), {
         headers: jsonHeaders,
       });
     }
@@ -173,60 +246,22 @@ export default {
       `,
       ).first<{ count: number }>();
 
-      const lowStockItemsResult = await env.DB.prepare(
-        `
-      SELECT COUNT(*) as count
-      FROM pantry_items
-      WHERE low_stock_threshold IS NOT NULL
-        AND quantity <= low_stock_threshold
-      `,
-      ).first<{ count: number }>();
+      const suggestedItems = await getSuggestedItemsWithDerivedCadence(env);
 
-      const refillDueItemsResult = await env.DB.prepare(
-        `
-      SELECT COUNT(*) as count
-      FROM pantry_items
-      WHERE last_bought_at IS NOT NULL
-        AND refill_frequency_days IS NOT NULL
-        AND CAST(julianday('now') - julianday(last_bought_at) AS INTEGER) >= refill_frequency_days
-      `,
-      ).first<{ count: number }>();
+      const refillDueItems = suggestedItems.filter(
+        (item) => item.suggestion_reason === "REFILL_DUE",
+      ).length;
 
-      const suggestedItemsResult = await env.DB.prepare(
-        `
-      SELECT COUNT(*) as count
-      FROM pantry_items
-      WHERE
-        (
-          low_stock_threshold IS NOT NULL
-          AND quantity <= low_stock_threshold
-        )
-        OR
-        (
-          last_bought_at IS NOT NULL
-          AND refill_frequency_days IS NOT NULL
-          AND CAST(julianday('now') - julianday(last_bought_at) AS INTEGER) >= refill_frequency_days
-        )
-      `,
-      ).first<{ count: number }>();
-
-      const dueSoonItemsResult = await env.DB.prepare(
-        `
-      SELECT COUNT(*) as count
-      FROM pantry_items
-      WHERE last_bought_at IS NOT NULL
-        AND refill_frequency_days IS NOT NULL
-        AND CAST(julianday('now') - julianday(last_bought_at) AS INTEGER) = refill_frequency_days - 1
-      `,
-      ).first<{ count: number }>();
+      const dueSoonItems = suggestedItems.filter(
+        (item) => item.suggestion_reason === "REFILL_DUE_SOON",
+      ).length;
 
       return new Response(
         JSON.stringify({
           totalItems: totalItemsResult?.count ?? 0,
-          lowStockItems: lowStockItemsResult?.count ?? 0,
-          refillDueItems: refillDueItemsResult?.count ?? 0,
-          suggestedItems: suggestedItemsResult?.count ?? 0,
-          dueSoonItems: dueSoonItemsResult?.count ?? 0,
+          refillDueItems,
+          dueSoonItems,
+          suggestedItems: suggestedItems.length,
         }),
         { headers: jsonHeaders },
       );
