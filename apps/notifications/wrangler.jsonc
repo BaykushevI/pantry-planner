@@ -6,6 +6,8 @@
     "consumers": [
       {
         "queue": "pantry-notifications",
+        "max_batch_size": 1,
+        "max_batch_timeout": 1,
       },
     ],
   },
