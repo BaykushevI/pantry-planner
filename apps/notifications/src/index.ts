@@ -1,3 +1,5 @@
+import type { NotificationJob } from "@pantry/shared";
+
 const jsonHeaders = {
   "Content-Type": "application/json",
 };
@@ -14,5 +16,12 @@ export default {
     }
 
     return new Response("Not Found", { status: 404 });
+  },
+
+  async queue(batch: MessageBatch<NotificationJob>): Promise<void> {
+    for (const message of batch.messages) {
+      console.log("Notification job received:", message.body);
+      message.ack();
+    }
   },
 };

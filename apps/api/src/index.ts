@@ -1,6 +1,10 @@
+import type { NotificationJob } from "@pantry/shared";
+
 type Env = {
   DB: D1Database;
+  NOTIFICATION_QUEUE: Queue;
 };
+
 type CreatePantryItemBody = {
   name: string;
   quantity: number;
@@ -190,6 +194,28 @@ export default {
           now,
         )
         .run();
+
+      const isLowStockItem =
+        body.lowStockThreshold !== null &&
+        body.lowStockThreshold !== undefined &&
+        Number(body.quantity) <= body.lowStockThreshold;
+
+      if (isLowStockItem) {
+        const job: NotificationJob = {
+          type: "LOW_STOCK",
+          userId: "demo-user",
+          itemId: id,
+          payload: {
+            name: body.name,
+            quantity: body.quantity,
+            unit: body.unit,
+            lowStockThreshold: body.lowStockThreshold,
+          },
+          createdAt: now,
+        };
+
+        await env.NOTIFICATION_QUEUE.send(job);
+      }
 
       return new Response(
         JSON.stringify({

@@ -2,4 +2,11 @@
   "name": "pantry-notifications",
   "main": "src/index.ts",
   "compatibility_date": "2026-01-01",
+  "queues": {
+    "consumers": [
+      {
+        "queue": "pantry-notifications",
+      },
+    ],
+  },
 }

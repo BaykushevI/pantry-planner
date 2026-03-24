@@ -9,4 +9,12 @@
       "database_id": "REPLACE_WITH_REAL_DATABASE_ID",
     },
   ],
+  "queues": {
+    "producers": [
+      {
+        "binding": "NOTIFICATION_QUEUE",
+        "queue": "pantry-notifications",
+      },
+    ],
+  },
 }
