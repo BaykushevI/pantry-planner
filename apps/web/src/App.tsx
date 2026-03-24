@@ -17,6 +17,7 @@ type DailySummary = {
   refillDueItems: number;
   dueSoonItems: number;
   suggestedItems: number;
+  shoppingSessionToday: boolean;
 };
 
 type CreateItemForm = {
@@ -227,6 +228,10 @@ export default function App() {
           <li>Refill due items: {summary.refillDueItems}</li>
           <li>Due soon items: {summary.dueSoonItems}</li>
           <li>Suggested items: {summary.suggestedItems}</li>
+          <li>
+            Shopping session today:{" "}
+            {summary.shoppingSessionToday ? "Yes" : "No"}
+          </li>
         </ul>
       )}
 

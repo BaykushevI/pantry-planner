@@ -99,6 +99,7 @@ function getDaysSince(dateString: string): number {
 }
 
 async function getSuggestedItemsWithDerivedCadence(env: Env) {
+  const shoppingSessionToday = await hasShoppingSessionToday(env);
   const result = await env.DB.prepare(
     `
       SELECT *
@@ -135,16 +136,79 @@ async function getSuggestedItemsWithDerivedCadence(env: Env) {
     const isDue = daysSinceLastBought >= cadenceDays;
     const isDueSoon = daysSinceLastBought === cadenceDays - 1;
 
-    if (isDue || isDueSoon) {
+    if (isDue) {
       suggestedItems.push({
         ...item,
         derived_cadence_days: cadenceDays,
-        suggestion_reason: isDue ? "REFILL_DUE" : "REFILL_DUE_SOON",
+        suggestion_reason: "REFILL_DUE",
+      });
+
+      continue;
+    }
+
+    if (isDueSoon && !shoppingSessionToday) {
+      suggestedItems.push({
+        ...item,
+        derived_cadence_days: cadenceDays,
+        suggestion_reason: "REFILL_DUE_SOON",
       });
     }
   }
 
   return suggestedItems;
+}
+
+function getTodaySessionDate(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+async function hasShoppingSessionToday(env: Env): Promise<boolean> {
+  const sessionDate = getTodaySessionDate();
+
+  const result = await env.DB.prepare(
+    `
+      SELECT COUNT(*) as count
+      FROM shopping_sessions
+      WHERE session_date = ?
+      `,
+  )
+    .bind(sessionDate)
+    .first<{ count: number }>();
+
+  return (result?.count ?? 0) > 0;
+}
+
+async function ensureShoppingSessionToday(env: Env): Promise<void> {
+  const sessionDate = getTodaySessionDate();
+  const now = new Date().toISOString();
+
+  const existing = await env.DB.prepare(
+    `
+      SELECT id
+      FROM shopping_sessions
+      WHERE session_date = ?
+      LIMIT 1
+      `,
+  )
+    .bind(sessionDate)
+    .first<{ id: string }>();
+
+  if (existing) {
+    return;
+  }
+
+  await env.DB.prepare(
+    `
+      INSERT INTO shopping_sessions (
+        id,
+        session_date,
+        created_at
+      )
+      VALUES (?, ?, ?)
+      `,
+  )
+    .bind(crypto.randomUUID(), sessionDate, now)
+    .run();
 }
 
 export default {
@@ -256,12 +320,15 @@ export default {
         (item) => item.suggestion_reason === "REFILL_DUE_SOON",
       ).length;
 
+      const shoppingSessionToday = await hasShoppingSessionToday(env);
+
       return new Response(
         JSON.stringify({
           totalItems: totalItemsResult?.count ?? 0,
           refillDueItems,
           dueSoonItems,
           suggestedItems: suggestedItems.length,
+          shoppingSessionToday,
         }),
         { headers: jsonHeaders },
       );
@@ -384,6 +451,8 @@ export default {
       )
         .bind(now, now, boughtItemId)
         .run();
+
+      await ensureShoppingSessionToday(env);
 
       await env.DB.prepare(
         `
