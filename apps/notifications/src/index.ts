@@ -28,7 +28,12 @@ export default {
           message.ack();
           continue;
         }
-
+        if (message.body.type === "DAILY_DIGEST") {
+          console.log(
+            "Daily digest job received for user:",
+            message.body.userId,
+          );
+        }
         if (Math.random() < 0.3) {
           throw new Error("Simulated random failure");
         }

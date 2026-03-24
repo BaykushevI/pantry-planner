@@ -24,7 +24,11 @@ importers:
         specifier: workspace:*
         version: link:../../packages/shared
 
-  apps/scheduler: {}
+  apps/scheduler:
+    dependencies:
+      '@pantry/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
 
   apps/web:
     dependencies:
