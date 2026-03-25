@@ -9,3 +9,6 @@ GET http://localhost:8790/unknown
 
 ### Test scheduled handler
 GET http://localhost:8787/__scheduled?cron=0+8+*+*+*
+
+### Run refill reminders
+GET http://localhost:8790/run-refill-reminders

@@ -2,19 +2,28 @@
 
 export type ID = string;
 
+export type ItemStatus = "active" | "history";
+
 export interface PantryItem {
   id: ID;
+  userId: string;
   name: string;
-  quantity: number;
-  unit: string;
+  status: ItemStatus;
+  notes?: string;
   lastBoughtAt?: string;
-  refillFrequencyDays?: number;
-  lowStockThreshold?: number;
+  snoozedUntil?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
-export interface UserPreferences {
-  userId: ID;
-  remindersEnabled: boolean;
-  dailyDigestEnabled: boolean;
-  weeklyDigestEnabled: boolean;
+export interface User {
+  id: ID;
+  username: string;
+  displayName: string;
+}
+
+export interface SuggestedItem extends PantryItem {
+  derivedCadenceDays: number;
+  daysSinceLastBought: number;
+  urgency: "due" | "due_soon";
 }

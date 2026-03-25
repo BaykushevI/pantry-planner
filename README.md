@@ -1,123 +1,204 @@
 # Pantry Planner
 
-Pantry Planner is a Level 2 architecture portfolio project focused on evolving from a modular monolith mindset toward a service-based design with async processing, queue-based flows, scheduled jobs, retry handling, and early CI/CD discipline.
+Pantry Planner is a **Personal Shopping Memory App** — a Level 2 architecture portfolio project that demonstrates service extraction, async processing, queue-based flows, scheduled jobs, retry handling, and operational visibility.
 
-The project is intentionally kept lightweight, practical, and explainable. The goal is not to build a heavy enterprise platform, but to demonstrate clean architectural thinking, meaningful service extraction, and disciplined implementation.
+The project is intentionally lightweight, practical, and explainable. The goal is not a heavy enterprise platform, but clean architectural thinking, meaningful service extraction, and disciplined product logic.
 
-## Project Context
+---
 
-This project is the second step in a 3-level architecture roadmap:
+## Table of Contents
 
-- **L1** — modular monolith
-- **L2** — service extraction, async processing, queue-based background flows
-- **L3** — distributed system + orchestration/advisor thinking
+- [Product Direction](#product-direction)
+- [Architecture Overview](#architecture-overview)
+- [Data Model](#data-model)
+- [Auth Model](#auth-model)
+- [Async Flows](#async-flows)
+- [Technology Stack](#technology-stack)
+- [Repository Structure](#repository-structure)
+- [Local Development](#local-development)
+- [Current Status](#current-status)
+- [What L2 Demonstrates](#what-l2-demonstrates)
 
-Pantry Planner is the **Level 2** project.
+---
 
-## Main Goal
+## Product Direction
 
-Build a practical household pantry application that demonstrates:
+Pantry Planner is a **Personal Shopping Memory App**.
 
-- service extraction
-- async processing
-- queue-based architecture
-- scheduled jobs
-- retry logic
-- CI/CD
-- Docker basics for local convenience
-- a more realistic operational model than L1
+Every user has:
 
-## Product Idea
+1. **Current Shopping List** — items currently on their list (status: `active`)
+2. **Suggested Items** — cadence-driven restock suggestions based on purchase history
+3. **Known Items** — previously bought or added items, available for quick re-adding (status: `history`)
 
-Pantry Planner is a household pantry app for managing:
+The app remembers what was bought, learns cadence patterns from purchase history, suggests when to restock, and allows quick re-adding of known products.
 
-- pantry items
-- quantity
-- last bought date
-- refill frequency
-- rule-based suggestions
-- reminders
-- daily/weekly digest flows
+### Key Behaviors
 
-The product remains intentionally simple:
+- Add to list → item becomes `active`
+- Remove from list → item becomes `history`, no purchase event recorded
+- Bought → item becomes `history`, purchase event recorded, shopping session updated
+- Re-add known item → same logical item reactivated (no duplicate created)
+- Suggestions → driven by cadence calculated from purchase history
+- Known Items → `history` items not currently in suggestions
 
-- no heavy business logic
-- no AI in v1
-- no unnecessary microservice complexity
-- no overengineering
+### Notes replace quantity
 
-## Architectural Direction
+The `notes` field is the primary user-facing descriptor. Examples: `"2 litres"`, `"3 bananas"`, `"organic if available"`. When re-adding a known item, the last used notes are suggested as default.
 
-The system is designed around a clear separation between:
+---
 
-### Main App
+## Architecture Overview
 
-Responsible for:
+```
+Web App → API Worker → D1 (SQLite)
+                    → Queue → Notifications Worker
+Scheduler Worker   → Queue → Notifications Worker
+```
 
-- pantry items
-- quantity tracking
-- refill frequency
-- suggestion rules
-- user preferences
-- synchronous CRUD flows
-- domain rule evaluation
+### Components
 
-### Background / Notification Service
+#### Web App
+- React + Vite + TypeScript
+- Login screen → user-scoped session in React state
+- Sections: Current Shopping List, Suggested Items, Known Items
+- Add form with autocomplete from known items
+- Bought / Remove / Snooze / Re-add actions
 
-Responsible for:
+#### Main API Worker
+- User-scoped domain logic
+- Auth: `POST /auth/login` validates credentials, returns user object
+- All endpoints require `X-User-Id` header (validated against DB)
+- Item CRUD, purchase history, suggestions, summary
 
-- low stock alerts
-- reminder processing
-- daily/weekly digest generation
-- retry handling
-- delivery logging
-- scheduled background checks
+#### Scheduler Worker
+- Time-based job producer
+- Iterates all users — no hardcoded user
+- Daily digest + refill reminder jobs per user
+- Cron: `0 8 * * *`
 
-### Queue
+#### Notifications Worker
+- Async queue consumer
+- Processes `DAILY_DIGEST` and `REFILL_REMINDER` jobs
+- Simulates 30% failure rate for retry demonstration
+- Persists all attempts with status tracking
 
-Used only where async decoupling has a real purpose:
+#### Queue
+- Decouples background processing from synchronous flows
 
-- low stock notification requested
-- refill due reminder requested
-- daily digest requested
-- weekly digest requested
-- optional bounded retry jobs
+#### D1
+- Tables: `users`, `pantry_items`, `purchase_events`, `shopping_sessions`, `notification_attempts`
 
-### Storage
+---
 
-- main application data stored in D1
-- queue is transient transport, not system-of-record storage
-- notification attempt state is owned by the background processing side
+## Data Model
 
-## Technology Baseline
+### Item Status Model
 
-The current chosen stack is:
+| Status | Meaning |
+|--------|---------|
+| `active` | Currently on the shopping list |
+| `history` | Known item, not on list |
+
+Items are never hard-deleted in normal flows.
+
+### Item Identity
+
+Items are identified per-user by normalized name (trimmed, case-insensitive). If a `history` item is re-added, the same logical item is reactivated — no duplicate created.
+
+### Cadence Logic
+
+```
+cadence = average days between consecutive purchase events
+```
+
+- Requires ≥ 2 purchase events
+- Items without sufficient history appear in Known Items but not in Suggestions
+- Suggestions: items due (days since last bought ≥ cadence) or due soon (1 day before)
+
+### Key Fields (pantry_items)
+
+| Field | Description |
+|-------|-------------|
+| `id` | UUID |
+| `user_id` | Owner (references `users`) |
+| `name` | Normalized item name |
+| `status` | `active` or `history` |
+| `notes` | Free-text descriptor (replaces quantity/unit) |
+| `last_bought_at` | Timestamp of last purchase event |
+| `snoozed_until` | Suppress from suggestions until this date |
+
+---
+
+## Auth Model
+
+Simple credential-based auth for a demo app. Not enterprise auth.
+
+- `POST /auth/login` validates `username` + `password` against the `users` table
+- Returns `{ id, username, displayName }` on success
+- Frontend stores the user object in React state (in-memory, lost on page refresh)
+- All protected endpoints require `X-User-Id` header
+- API validates the header against the `users` table on every request
+
+### Demo Users
+
+| Username | Password | Display Name |
+|----------|----------|--------------|
+| `alice` | `alice123` | Alice |
+| `bob` | `bob123` | Bob |
+
+Each user has fully isolated data: own shopping list, known items, suggestions, purchase history, and shopping sessions.
+
+> Passwords are stored as plaintext — intentionally, for demo simplicity. Production would use bcrypt or similar.
+
+---
+
+## Async Flows
+
+### 1. Scheduler-Driven Daily Digest
+
+```
+Scheduler (cron 8am) → iterates all users → DAILY_DIGEST per user → Queue → Notifications Worker
+```
+
+### 2. Scheduler-Driven Refill Reminders
+
+```
+Scheduler → per-user cadence evaluation → REFILL_REMINDER per due item → Queue → Notifications Worker
+Deduplication: skips items already reminded today (via notification_attempts)
+```
+
+### 3. Bought Action (API-Triggered)
+
+```
+User marks item as bought → API → purchase event recorded → REFILL_REMINDER enqueued → Queue → Notifications Worker
+```
+
+---
+
+## Technology Stack
 
 - **Frontend:** React + Vite + TypeScript
 - **Main API:** Cloudflare Workers + TypeScript
-- **Async processing:** Cloudflare Queues
-- **Background consumer:** separate Worker
-- **Scheduler:** cron-triggered Worker
-- **Storage:** Cloudflare D1
-- **CI/CD:** GitHub Actions
-- **Local convenience:** Docker
-- **Hosting:** Cloudflare Pages + Cloudflare Workers
+- **Scheduler:** Cloudflare Worker with cron support
+- **Background Processing:** Cloudflare Queues
+- **Storage:** Cloudflare D1 (SQLite)
+- **CI:** GitHub Actions
+- **Local Dev:** Wrangler shared persist state
 
-## Repository Strategy
+---
 
-This project uses a **monorepo** structure.
+## Repository Structure
 
-Repository structure:
-
-```text
+```
 apps/
-  web/
-  api/
-  notifications/
-  scheduler/
+  web/          React frontend
+  api/          Main API worker
+  notifications/ Queue consumer worker
+  scheduler/    Cron job producer worker
 
 packages/
-  shared/
+  shared/       Shared types and contracts
 
 docs/
   architecture/
@@ -126,87 +207,96 @@ docs/
   roadmap/
 
 infra/
-  d1/
-  docker/
-
-.github/
-  workflows/
+  d1/migrations/  D1 schema migrations
 ```
 
-## Implementation Principles
+---
 
-The project follows these rules from the start:
-• keep it simple
-• MVP first
-• small safe increments
-• docs-first
-• early CI
-• no giant hidden changes
-• frequent commits
-• frequent pushes
-• short-lived branches
-• architecture must remain explainable
+## Local Development
 
-## What This Project Should Demonstrate
+### Install
 
-By the end of L2, Pantry Planner should clearly show:
-• why a separate background service exists
-• how sync and async responsibilities differ
-• how a queue decouples operational work
-• how scheduled jobs fit into the system
-• how retry handling is isolated from user-facing flows
-• how CI/CD supports disciplined delivery
-• how a simple app can still show strong system thinking
+```bash
+pnpm install
+```
 
-## Current Phase
+### Run migrations (first time or after schema changes)
 
-Phase 1 — Foundation bootstrap
+```bash
+npx wrangler d1 execute pantry-planner-db --local \
+  --persist-to .wrangler/state \
+  --file=infra/d1/migrations/0006_users_and_model_update.sql
+```
 
-Current focus:
-• repo foundation
-• workspace structure
-• docs-first setup
-• shared package shell
-• worker shells
-• frontend shell
-• CI bootstrap
-• alignment pass
+### API + Notifications (port 8787)
 
-No feature logic is being implemented yet.
+```bash
+cd apps/api
+npx wrangler dev \
+  -c wrangler.jsonc \
+  -c ../notifications/wrangler.jsonc \
+  --persist-to ../../.wrangler/state \
+  --port 8787
+```
 
-## Working Discipline
+### Scheduler + Notifications (port 8790)
 
-This repo is being built with a delivery mindset:
-• one small reviewable step at a time
-• validate locally after each step
-• commit after each logical checkpoint
-• push frequently
-• keep the repo stable as often as possible
-• do not mix setup work with feature work
+```bash
+cd apps/scheduler
+npx wrangler dev \
+  -c wrangler.jsonc \
+  -c ../notifications/wrangler.jsonc \
+  --persist-to ../../.wrangler/state \
+  --port 8790 \
+  --test-scheduled
+```
 
-## Status
+### Frontend (port 5173)
 
-Current status:
+```bash
+cd apps/web
+pnpm dev
+```
 
-- initial repository foundation created
-- root workspace configuration added
-- documentation package added
-- shared package shell created
-- api shell created
-- web shell created
-- notifications shell created
-- scheduler shell created
-- initial CI workflow added and validated
-- first queue-based notification flow implemented and validated locally
-- queue-based notification flow implemented
-- retry and failure handling added
-- scheduler with cron trigger implemented
-- daily digest payload generated from D1
+> All workers must use `--persist-to ../../.wrangler/state` to share the same D1 database locally.
 
-Next step:
+---
 
-- begin pantry core foundation
+## Current Status
 
-## Notes
+- [x] DB migrations with user scoping
+- [x] Demo users seeded (alice, bob)
+- [x] Simple login / credential auth
+- [x] User-scoped shopping list (active/history model)
+- [x] Notes field replaces quantity/unit
+- [x] Item re-activation (no hard delete, no duplicate)
+- [x] Autocomplete from known items
+- [x] Cadence-driven suggestions (purchase history based)
+- [x] Shopping session awareness
+- [x] Per-user scheduler (daily digest + refill reminders)
+- [x] Retry and failure simulation
+- [x] Notification attempt persistence
+- [x] Same-day reminder dedupe
+- [x] Clean multi-section UI
 
-This repository is intentionally being built in a way that makes the architecture easy to explain later in portfolio discussions, interviews, and future project evolution work.
+---
+
+## What L2 Demonstrates
+
+- meaningful service extraction (3 workers + shared queue)
+- async background processing with retry logic
+- queue-based decoupling
+- scheduled job orchestration per user
+- operational traceability (persisted attempts)
+- behavior-driven product logic (cadence from purchase history)
+- status-based item lifecycle (no hard delete)
+- disciplined monorepo implementation
+
+---
+
+## Quick Links
+
+- [Architecture v1](docs/architecture/architecture-v1.md)
+- [Local Setup](docs/setup/local-setup.md)
+- [Local Development](docs/setup/local-development.md)
+- [Deployment Notes](docs/deployment/deployment-notes.md)

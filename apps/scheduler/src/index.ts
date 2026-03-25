@@ -6,271 +6,174 @@ type Env = {
 };
 
 type DailySummaryPayload = {
-  totalItems: number;
+  activeItems: number;
+  knownItems: number;
   refillDueItems: number;
   dueSoonItems: number;
   suggestedItems: number;
 };
 
-type RefillDueItem = {
+type DbItem = {
   id: string;
+  user_id: string;
   name: string;
-  quantity: number;
   last_bought_at: string | null;
 };
 
-const jsonHeaders = {
-  "Content-Type": "application/json",
-};
+const jsonHeaders = { "Content-Type": "application/json" };
 
 function getTodayDatePrefix(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-async function hasSuccessfulReminderToday(
-  env: Env,
-  itemId: string,
-): Promise<boolean> {
-  const todayPrefix = getTodayDatePrefix();
+// ── Cadence logic (unchanged) ─────────────────────────────────────────────────
 
+async function getDerivedCadenceDays(env: Env, itemId: string): Promise<number | null> {
   const result = await env.DB.prepare(
-    `
-      SELECT COUNT(*) as count
-      FROM notification_attempts
-      WHERE job_type = 'REFILL_REMINDER'
-        AND item_id = ?
-        AND status = 'SUCCESS'
-        AND substr(created_at, 1, 10) = ?
-      `,
-  )
-    .bind(itemId, todayPrefix)
-    .first<{ count: number }>();
-
-  return (result?.count ?? 0) > 0;
-}
-
-async function getDerivedCadenceDays(
-  env: Env,
-  itemId: string,
-): Promise<number | null> {
-  const result = await env.DB.prepare(
-    `
-      SELECT purchased_at
-      FROM purchase_events
-      WHERE item_id = ?
-      ORDER BY purchased_at ASC
-      `,
+    "SELECT purchased_at FROM purchase_events WHERE item_id = ? ORDER BY purchased_at ASC",
   )
     .bind(itemId)
     .all<{ purchased_at: string }>();
 
   const events = result.results ?? [];
-
-  if (events.length < 2) {
-    return null;
-  }
+  if (events.length < 2) return null;
 
   const intervals: number[] = [];
-
   for (let i = 1; i < events.length; i++) {
-    const previous = new Date(events[i - 1].purchased_at);
-    const current = new Date(events[i].purchased_at);
-    const diffMs = current.getTime() - previous.getTime();
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-    if (diffDays > 0) {
-      intervals.push(diffDays);
-    }
+    const diffDays = Math.floor(
+      (new Date(events[i].purchased_at).getTime() - new Date(events[i - 1].purchased_at).getTime()) / 86400000,
+    );
+    if (diffDays > 0) intervals.push(diffDays);
   }
 
-  if (intervals.length === 0) {
-    return null;
-  }
-
-  const average =
-    intervals.reduce((sum, value) => sum + value, 0) / intervals.length;
-
-  return Math.round(average);
+  if (intervals.length === 0) return null;
+  return Math.round(intervals.reduce((sum, v) => sum + v, 0) / intervals.length);
 }
 
 function getDaysSince(dateString: string): number {
-  const target = new Date(dateString);
-  const now = new Date();
-  const diffMs = now.getTime() - target.getTime();
-
-  return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  return Math.floor((Date.now() - new Date(dateString).getTime()) / 86400000);
 }
 
-async function getSuggestedItemsWithDerivedCadence(env: Env) {
-  const result = await env.DB.prepare(
-    `
-      SELECT *
-      FROM pantry_items
-      WHERE (snoozed_until IS NULL OR datetime(snoozed_until) <= datetime('now'))
-      ORDER BY updated_at DESC
-      `,
-  ).all<{
+// ── Per-user helpers ──────────────────────────────────────────────────────────
+
+async function getAllUsers(env: Env): Promise<Array<{ id: string; username: string }>> {
+  const result = await env.DB.prepare("SELECT id, username FROM users ORDER BY id").all<{
     id: string;
-    name: string;
-    quantity: number;
-    last_bought_at: string | null;
-    snoozed_until: string | null;
-    created_at: string;
-    updated_at: string;
+    username: string;
   }>();
+  return result.results ?? [];
+}
+
+async function hasSuccessfulReminderToday(env: Env, itemId: string): Promise<boolean> {
+  const todayPrefix = getTodayDatePrefix();
+  const result = await env.DB.prepare(
+    `SELECT COUNT(*) as count FROM notification_attempts
+     WHERE job_type = 'REFILL_REMINDER'
+       AND item_id = ?
+       AND status = 'SUCCESS'
+       AND substr(created_at, 1, 10) = ?`,
+  )
+    .bind(itemId, todayPrefix)
+    .first<{ count: number }>();
+  return (result?.count ?? 0) > 0;
+}
+
+async function getSuggestedItemsForUser(env: Env, userId: string) {
+  const result = await env.DB.prepare(
+    `SELECT id, user_id, name, last_bought_at
+     FROM pantry_items
+     WHERE user_id = ?
+       AND status = 'history'
+       AND last_bought_at IS NOT NULL
+       AND (snoozed_until IS NULL OR datetime(snoozed_until) <= datetime('now'))
+     ORDER BY updated_at DESC`,
+  )
+    .bind(userId)
+    .all<DbItem>();
 
   const items = result.results ?? [];
-  const suggestedItems: Array<Record<string, unknown>> = [];
+  const suggested: Array<DbItem & { derivedCadenceDays: number; reason: string }> = [];
 
   for (const item of items) {
-    if (!item.last_bought_at) {
-      continue;
-    }
-
+    if (!item.last_bought_at) continue;
     const cadenceDays = await getDerivedCadenceDays(env, item.id);
-
-    if (cadenceDays === null) {
-      continue;
-    }
-
-    const daysSinceLastBought = getDaysSince(item.last_bought_at);
-
-    const isDue = daysSinceLastBought >= cadenceDays;
-    const isDueSoon = daysSinceLastBought === cadenceDays - 1;
-
-    if (isDue) {
-      suggestedItems.push({
-        ...item,
-        derived_cadence_days: cadenceDays,
-        suggestion_reason: "REFILL_DUE",
-      });
-
-      continue;
-    }
-
-    if (isDueSoon) {
-      suggestedItems.push({
-        ...item,
-        derived_cadence_days: cadenceDays,
-        suggestion_reason: "REFILL_DUE_SOON",
-      });
+    if (cadenceDays === null) continue;
+    const daysSince = getDaysSince(item.last_bought_at);
+    if (daysSince >= cadenceDays) {
+      suggested.push({ ...item, derivedCadenceDays: cadenceDays, reason: "REFILL_DUE" });
+    } else if (daysSince === cadenceDays - 1) {
+      suggested.push({ ...item, derivedCadenceDays: cadenceDays, reason: "REFILL_DUE_SOON" });
     }
   }
 
-  return suggestedItems;
+  return suggested;
 }
 
-async function buildDailySummary(env: Env): Promise<DailySummaryPayload> {
-  const totalItemsResult = await env.DB.prepare(
-    `
-      SELECT COUNT(*) as count
-      FROM pantry_items
-      `,
-  ).first<{ count: number }>();
+async function buildDailySummaryForUser(env: Env, userId: string): Promise<DailySummaryPayload> {
+  const activeResult = await env.DB.prepare(
+    "SELECT COUNT(*) as count FROM pantry_items WHERE user_id = ? AND status = 'active'",
+  )
+    .bind(userId)
+    .first<{ count: number }>();
 
-  const suggestedItems = await getSuggestedItemsWithDerivedCadence(env);
+  const knownResult = await env.DB.prepare(
+    "SELECT COUNT(*) as count FROM pantry_items WHERE user_id = ? AND status = 'history'",
+  )
+    .bind(userId)
+    .first<{ count: number }>();
 
-  const refillDueItems = suggestedItems.filter(
-    (item) => item.suggestion_reason === "REFILL_DUE",
-  ).length;
-
-  const dueSoonItems = suggestedItems.filter(
-    (item) => item.suggestion_reason === "REFILL_DUE_SOON",
-  ).length;
+  const suggested = await getSuggestedItemsForUser(env, userId);
+  const refillDue = suggested.filter((i) => i.reason === "REFILL_DUE").length;
+  const dueSoon = suggested.filter((i) => i.reason === "REFILL_DUE_SOON").length;
 
   return {
-    totalItems: totalItemsResult?.count ?? 0,
-    refillDueItems,
-    dueSoonItems,
-    suggestedItems: suggestedItems.length,
+    activeItems: activeResult?.count ?? 0,
+    knownItems: knownResult?.count ?? 0,
+    refillDueItems: refillDue,
+    dueSoonItems: dueSoon,
+    suggestedItems: suggested.length,
   };
 }
 
-async function getRefillDueItems(
-  env: Env,
-): Promise<Array<RefillDueItem & { derivedCadenceDays: number }>> {
-  const result = await env.DB.prepare(
-    `
-      SELECT id, name, quantity, last_bought_at
-      FROM pantry_items
-      WHERE
-        (snoozed_until IS NULL OR datetime(snoozed_until) <= datetime('now'))
-        AND last_bought_at IS NOT NULL
-      ORDER BY updated_at DESC
-      `,
-  ).all<RefillDueItem>();
+// ── Enqueue jobs ──────────────────────────────────────────────────────────────
 
-  const items = result.results ?? [];
-  const dueItems: Array<RefillDueItem & { derivedCadenceDays: number }> = [];
-
-  for (const item of items) {
-    if (!item.last_bought_at) {
-      continue;
-    }
-
-    const cadenceDays = await getDerivedCadenceDays(env, item.id);
-
-    if (cadenceDays === null) {
-      continue;
-    }
-
-    const daysSinceLastBought = getDaysSince(item.last_bought_at);
-
-    if (daysSinceLastBought >= cadenceDays) {
-      dueItems.push({
-        ...item,
-        derivedCadenceDays: cadenceDays,
-      });
-    }
-  }
-
-  return dueItems;
-}
-
-async function enqueueDailyDigest(env: Env, source: "manual" | "cron") {
-  const summary = await buildDailySummary(env);
-
+async function enqueueDailyDigestForUser(env: Env, userId: string, source: "manual" | "cron") {
+  const summary = await buildDailySummaryForUser(env, userId);
   const job: NotificationJob = {
     type: "DAILY_DIGEST",
-    userId: "demo-user",
+    userId,
     createdAt: new Date().toISOString(),
-    payload: {
-      source,
-      summary,
-    },
+    payload: { source, summary },
   };
-
   await env.NOTIFICATION_QUEUE.send(job);
 }
 
-async function enqueueRefillReminders(env: Env, source: "manual" | "cron") {
-  const dueItems = await getRefillDueItems(env);
+async function enqueueRefillRemindersForUser(
+  env: Env,
+  userId: string,
+  source: "manual" | "cron",
+): Promise<number> {
+  const dueItems = (await getSuggestedItemsForUser(env, userId)).filter(
+    (i) => i.reason === "REFILL_DUE",
+  );
   let enqueuedCount = 0;
-
-  console.log("Refill due items:", dueItems);
 
   for (const item of dueItems) {
     const alreadyRemindedToday = await hasSuccessfulReminderToday(env, item.id);
-
-    if (alreadyRemindedToday) {
-      console.log("Skipping already-reminded item:", item.id);
-      continue;
-    }
+    if (alreadyRemindedToday) continue;
 
     const job: NotificationJob = {
       type: "REFILL_REMINDER",
-      userId: "demo-user",
+      userId,
       itemId: item.id,
       createdAt: new Date().toISOString(),
       payload: {
         source,
         name: item.name,
-        quantity: item.quantity,
         derivedCadenceDays: item.derivedCadenceDays,
         lastBoughtAt: item.last_bought_at,
       },
     };
-
     await env.NOTIFICATION_QUEUE.send(job);
     enqueuedCount++;
   }
@@ -278,38 +181,46 @@ async function enqueueRefillReminders(env: Env, source: "manual" | "cron") {
   return enqueuedCount;
 }
 
+async function runAllUsers(env: Env, source: "manual" | "cron") {
+  const users = await getAllUsers(env);
+  console.log(`Running scheduler for ${users.length} user(s), source: ${source}`);
+
+  for (const user of users) {
+    console.log(`Processing user: ${user.username} (${user.id})`);
+    await enqueueDailyDigestForUser(env, user.id, source);
+    const count = await enqueueRefillRemindersForUser(env, user.id, source);
+    console.log(`  Enqueued ${count} refill reminders for ${user.username}`);
+  }
+}
+
+// ── Worker ────────────────────────────────────────────────────────────────────
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
     if (url.pathname === "/health") {
-      return new Response(
-        JSON.stringify({ status: "ok", service: "scheduler" }),
-        { headers: jsonHeaders },
-      );
+      return new Response(JSON.stringify({ status: "ok", service: "scheduler" }), {
+        headers: jsonHeaders,
+      });
     }
 
     if (url.pathname === "/run-daily-digest") {
-      await enqueueDailyDigest(env, "manual");
-
+      await runAllUsers(env, "manual");
       return new Response(
-        JSON.stringify({
-          status: "ok",
-          message: "daily digest job enqueued",
-        }),
+        JSON.stringify({ status: "ok", message: "daily digest enqueued for all users" }),
         { headers: jsonHeaders },
       );
     }
 
     if (url.pathname === "/run-refill-reminders") {
-      const count = await enqueueRefillReminders(env, "manual");
-
+      const users = await getAllUsers(env);
+      let total = 0;
+      for (const user of users) {
+        total += await enqueueRefillRemindersForUser(env, user.id, "manual");
+      }
       return new Response(
-        JSON.stringify({
-          status: "ok",
-          message: "refill reminder jobs enqueued",
-          count,
-        }),
+        JSON.stringify({ status: "ok", message: "refill reminders enqueued", count: total }),
         { headers: jsonHeaders },
       );
     }
@@ -323,12 +234,6 @@ export default {
     ctx: ExecutionContext,
   ): Promise<void> {
     console.log("Cron triggered:", controller.cron);
-
-    ctx.waitUntil(
-      Promise.all([
-        enqueueDailyDigest(env, "cron"),
-        enqueueRefillReminders(env, "cron"),
-      ]),
-    );
+    ctx.waitUntil(runAllUsers(env, "cron"));
   },
 };

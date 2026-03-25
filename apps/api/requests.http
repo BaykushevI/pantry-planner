@@ -4,78 +4,134 @@ GET http://localhost:8787/health
 ### Database health check
 GET http://localhost:8787/health/db
 
-### Not found test
-GET http://localhost:8787/unknown
+### ── Auth ────────────────────────────────────────────────────────────────────
 
-### Get all items
+### Login as Alice
+POST http://localhost:8787/auth/login
+Content-Type: application/json
+
+{
+  "username": "alice",
+  "password": "alice123"
+}
+
+### Login as Bob
+POST http://localhost:8787/auth/login
+Content-Type: application/json
+
+{
+  "username": "bob",
+  "password": "wrong"
+}
+
+### Invalid credentials
+POST http://localhost:8787/auth/login
+Content-Type: application/json
+
+{
+  "username": "alice",
+  "password": "alice123"
+}
+
+### ── Items (Alice) ───────────────────────────────────────────────────────────
+
+### Get all items (active + history)
 GET http://localhost:8787/items
+X-User-Id: user_alice
 
-### Create item
+### Get only active items (current shopping list)
+GET http://localhost:8787/items?status=active
+X-User-Id: user_alice
+
+### Get only history items (known items)
+GET http://localhost:8787/items?status=history
+X-User-Id: user_alice
+
+### Add new item to list
 POST http://localhost:8787/items
 Content-Type: application/json
+X-User-Id: user_alice
 
 {
   "name": "Milk",
-  "quantity": 1,
-  "unit": "liter",
-  "refillFrequencyDays": 3,
-  "lowStockThreshold": 0.5
+  "notes": "2 litres, full fat"
 }
 
-### Update item quantity
-PATCH http://localhost:8787/items/REPLACE_WITH_ID/quantity
-Content-Type: application/json
-
-{
-  "quantity": 3
-}
-
-### Delete item
-DELETE http://localhost:8787/items/REPLACE_WITH_ID
-
-### Get suggestions
-GET http://localhost:8787/suggestions
-
-### Create refill-due item
+### Add item without notes
 POST http://localhost:8787/items
 Content-Type: application/json
+X-User-Id: user_alice
 
 {
-  "name": "Coffee",
-  "quantity": 3,
-  "unit": "packs",
-  "lastBoughtAt": "2026-03-01T00:00:00.000Z",
-  "refillFrequencyDays": 7,
-  "lowStockThreshold": 1
+  "name": "Milk"
 }
 
-### Get daily summary
-GET http://localhost:8787/summary/daily
-
-### Create low stock item
+### Re-add a known item (history → active)
 POST http://localhost:8787/items
 Content-Type: application/json
+X-User-Id: user_alice
 
 {
-  "name": "Sugar",
-  "quantity": 1,
-  "unit": "kg",
-  "lowStockThreshold": 2
+  "name": "Milk",
+  "notes": "2 litre this time"
 }
-###
-POST http://localhost:8787/items
+
+### Autocomplete search
+GET http://localhost:8787/items/autocomplete?q=mi
+X-User-Id: user_alice
+
+### Update notes on an item
+PATCH http://localhost:8787/items/REPLACE_WITH_ID/notes
 Content-Type: application/json
+X-User-Id: user_alice
 
 {
-  "name": "Pepper",
-  "quantity": 1
+  "notes": "3 bananas"
 }
 
-### Snooze item for today
-POST http://localhost:8787/items/REPLACE_WITH_ID/snooze
-
-### Mark item as bought today
+### Mark item as bought (active → history + purchase event)
 POST http://localhost:8787/items/REPLACE_WITH_ID/bought
+X-User-Id: user_alice
+
+### Remove from list (active → history, no purchase event)
+POST http://localhost:8787/items/REPLACE_WITH_ID/remove
+X-User-Id: user_alice
+
+### Snooze item (suppress from suggestions for 1 day)
+POST http://localhost:8787/items/REPLACE_WITH_ID/snooze
+X-User-Id: user_alice
 
 ### Get derived cadence for item
 GET http://localhost:8787/items/REPLACE_WITH_ID/cadence
+X-User-Id: user_alice
+
+### ── Suggestions & Summary ───────────────────────────────────────────────────
+
+### Get suggestions (cadence-driven, history items only)
+GET http://localhost:8787/suggestions
+X-User-Id: user_alice
+
+### Get daily summary
+GET http://localhost:8787/summary/daily
+X-User-Id: user_alice
+
+### ── Notifications ───────────────────────────────────────────────────────────
+
+### Get notification history
+GET http://localhost:8787/notifications/history
+
+### ── Bob (separate user data) ────────────────────────────────────────────────
+
+### Bob's shopping list
+GET http://localhost:8787/items?status=active
+X-User-Id: user_bob
+
+### Add item for Bob
+POST http://localhost:8787/items
+Content-Type: application/json
+X-User-Id: user_bob
+
+{
+  "name": "Bread",
+  "notes": "sourdough"
+}

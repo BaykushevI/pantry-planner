@@ -109,6 +109,7 @@ export default {
             "Refill reminder job received for item:",
             message.body.itemId,
           );
+          console.log("Refill reminder payload:", message.body.payload);
         }
 
         if (Math.random() < 0.3) {

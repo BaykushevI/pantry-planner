@@ -1,20 +1,26 @@
 {
-  "name": "pantry-api",
-  "main": "src/index.ts",
-  "compatibility_date": "2026-01-01",
-  "d1_databases": [
-    {
-      "binding": "DB",
-      "database_name": "pantry-planner-db",
-      "database_id": "local-db",
-    },
-  ],
-  "queues": {
-    "producers": [
-      {
-        "binding": "NOTIFICATION_QUEUE",
-        "queue": "pantry-notifications",
-      },
-    ],
-  },
+	"name": "pantry-api",
+	"main": "src/index.ts",
+	"compatibility_date": "2026-01-01",
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "pantry-planner-db",
+			"database_id": "local-db",
+			"preview_database_id": "DB",
+		},
+		{
+			"binding": "pantry_planner_db",
+			"database_name": "pantry-planner-db",
+			"database_id": "e8868a89-8628-4824-a5d6-028cfd125ce6"
+		},
+	],
+	"queues": {
+		"producers": [
+			{
+				"binding": "NOTIFICATION_QUEUE",
+				"queue": "pantry-notifications",
+			},
+		],
+	},
 }
