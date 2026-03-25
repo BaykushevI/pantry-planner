@@ -296,8 +296,8 @@ export default {
       // New item
       const id = crypto.randomUUID();
       await env.DB.prepare(
-        `INSERT INTO pantry_items (id, user_id, name, status, notes, quantity, unit, created_at, updated_at)
-         VALUES (?, ?, ?, 'active', ?, 0, '', ?, ?)`,
+        `INSERT INTO pantry_items (id, user_id, name, status, notes, created_at, updated_at)
+         VALUES (?, ?, ?, 'active', ?, ?, ?)`,
       )
         .bind(id, userId, normalizedName, body.notes ?? null, now, now)
         .run();
